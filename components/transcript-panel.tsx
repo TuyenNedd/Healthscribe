@@ -1,0 +1,255 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { Speaker, TranscriptSegment } from "@/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { RotateCcw, Lock, Unlock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  setAutoScrollEnabled,
+  setUserHasScrolled,
+  toggleAutoScroll,
+} from "@/lib/store/transcriptSlice";
+
+interface TranscriptPanelProps {
+  transcript: TranscriptSegment[];
+  speakers: Speaker[];
+  currentTime: number;
+  highlightedSegmentId?: string;
+  onSegmentClick: (segment: TranscriptSegment) => void;
+}
+
+export function TranscriptPanel({
+  transcript,
+  speakers,
+  currentTime,
+  highlightedSegmentId,
+  onSegmentClick,
+}: TranscriptPanelProps) {
+  const dispatch = useAppDispatch();
+  const { autoScrollEnabled, userHasScrolled } = useAppSelector(
+    (state) => state.transcript
+  );
+
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const segmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const lastScrollTime = useRef<number>(0);
+  const autoScrollInProgress = useRef<boolean>(false);
+
+  const filteredTranscript = transcript;
+
+  // Detect user manual scrolling
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    const handleScroll = () => {
+      const now = Date.now();
+
+      // If this scroll event happened very recently after an auto-scroll, ignore it
+      if (autoScrollInProgress.current && now - lastScrollTime.current < 100) {
+        return;
+      }
+
+      // This is a user-initiated scroll
+      if (!autoScrollInProgress.current && autoScrollEnabled) {
+        dispatch(setUserHasScrolled(true));
+        dispatch(setAutoScrollEnabled(false));
+      }
+    };
+
+    const scrollElement = scrollArea.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    );
+    if (scrollElement) {
+      scrollElement.addEventListener("scroll", handleScroll, { passive: true });
+      return () => scrollElement.removeEventListener("scroll", handleScroll);
+    }
+  }, [autoScrollEnabled, dispatch]);
+
+  // Find the active segment based on current time
+  useEffect(() => {
+    const currentSegment = transcript.find(
+      (segment) =>
+        currentTime >= segment.startTime && currentTime <= segment.endTime
+    );
+
+    if (currentSegment) {
+      setActiveSegmentId(currentSegment.id);
+
+      // Only auto-scroll if enabled and user hasn't manually scrolled
+      if (autoScrollEnabled && !userHasScrolled) {
+        const segmentElement = segmentRefs.current[currentSegment.id];
+        if (segmentElement) {
+          autoScrollInProgress.current = true;
+          lastScrollTime.current = Date.now();
+
+          segmentElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+          // Reset the flag after scroll animation completes
+          setTimeout(() => {
+            autoScrollInProgress.current = false;
+          }, 500);
+        }
+      }
+    }
+  }, [currentTime, transcript, autoScrollEnabled, userHasScrolled]);
+
+  // Scroll to highlighted segment when it changes (always enabled for summary clicks)
+  useEffect(() => {
+    if (highlightedSegmentId) {
+      const segmentElement = segmentRefs.current[highlightedSegmentId];
+      if (segmentElement) {
+        autoScrollInProgress.current = true;
+        lastScrollTime.current = Date.now();
+
+        segmentElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        setTimeout(() => {
+          autoScrollInProgress.current = false;
+        }, 500);
+      }
+    }
+  }, [highlightedSegmentId]);
+
+  const handleToggleAutoScroll = () => {
+    dispatch(toggleAutoScroll());
+
+    // If enabling auto-scroll, immediately scroll to current segment
+    if (!autoScrollEnabled) {
+      const currentSegment = transcript.find(
+        (segment) =>
+          currentTime >= segment.startTime && currentTime <= segment.endTime
+      );
+      if (currentSegment) {
+        const segmentElement = segmentRefs.current[currentSegment.id];
+        if (segmentElement) {
+          autoScrollInProgress.current = true;
+          lastScrollTime.current = Date.now();
+
+          segmentElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+          setTimeout(() => {
+            autoScrollInProgress.current = false;
+          }, 500);
+        }
+      }
+    }
+  };
+
+  const handleGoToCurrentSegment = () => {
+    const currentSegment = transcript.find(
+      (segment) =>
+        currentTime >= segment.startTime && currentTime <= segment.endTime
+    );
+    if (currentSegment) {
+      const segmentElement = segmentRefs.current[currentSegment.id];
+      if (segmentElement) {
+        autoScrollInProgress.current = true;
+        lastScrollTime.current = Date.now();
+
+        segmentElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        setTimeout(() => {
+          autoScrollInProgress.current = false;
+        }, 500);
+      }
+    }
+  };
+
+  const getSpeakerById = (id: string) => {
+    return speakers.find((speaker) => speaker.id === id);
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Transcript</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGoToCurrentSegment}
+            className="text-xs"
+            title="Go to current audio position"
+          >
+            <RotateCcw size={14} className="mr-1" />
+            Current
+          </Button>
+          <Button
+            variant={autoScrollEnabled ? "default" : "outline"}
+            size="sm"
+            onClick={handleToggleAutoScroll}
+            className="text-xs"
+            title={
+              autoScrollEnabled ? "Disable auto-scroll" : "Enable auto-scroll"
+            }
+          >
+            {autoScrollEnabled ? (
+              <>
+                <Unlock size={14} className="mr-1" />
+                Auto
+              </>
+            ) : (
+              <>
+                <Lock size={14} className="mr-1" />
+                Manual
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <ScrollArea ref={scrollAreaRef} className="flex-1">
+        <div className="space-y-6 pr-4">
+          {filteredTranscript.map((segment) => {
+            const speaker = getSpeakerById(segment.speakerId);
+            return (
+              <div
+                key={segment.id}
+                ref={(el) => (segmentRefs.current[segment.id] = el)}
+                className={cn(
+                  "transition-all duration-200 cursor-pointer hover:bg-gray-50",
+                  activeSegmentId === segment.id &&
+                    "bg-blue-50 -mx-2 px-2 py-1 rounded",
+                  highlightedSegmentId === segment.id &&
+                    "bg-yellow-50 -mx-2 px-2 py-1 rounded border-l-4 border-yellow-400"
+                )}
+                onClick={() => onSegmentClick(segment)}
+              >
+                <div className="mb-1">
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      speaker?.role === "clinician"
+                        ? "text-blue-700"
+                        : "text-emerald-700"
+                    )}
+                  >
+                    {speaker?.role === "clinician" ? "Clinician" : "Patient"}
+                  </span>
+                </div>
+                <p className="text-gray-800">{segment.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
