@@ -29,6 +29,8 @@ interface AudioPlayerProps {
   onPause?: () => void;
   onSeek?: (time: number) => void;
   wordTimings?: Array<{ word: string; start: number; end: number }>;
+  segmentRange?: { start: number; end: number } | null;
+  onSegmentRangeUsed?: () => void;
 }
 
 export function AudioPlayer({
@@ -40,6 +42,8 @@ export function AudioPlayer({
   onPause,
   onSeek,
   wordTimings,
+  segmentRange,
+  onSegmentRangeUsed,
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -227,6 +231,8 @@ export function AudioPlayer({
               }}
               isPlaying={isPlaying}
               height={64}
+              segmentRange={segmentRange}
+              onSegmentRangeUsed={onSegmentRangeUsed}
             />
           </div>
         </div>

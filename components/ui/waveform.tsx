@@ -15,6 +15,8 @@ interface WaveformProps {
   onSeek?: (time: number) => void;
   isPlaying?: boolean;
   height?: number;
+  segmentRange?: { start: number; end: number } | null;
+  onSegmentRangeUsed?: () => void;
 }
 
 export function Waveform({
@@ -27,6 +29,8 @@ export function Waveform({
   onSeek,
   isPlaying = false,
   height = 64,
+  segmentRange,
+  onSegmentRangeUsed,
 }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWavesurferReady, setIsWavesurferReady] = useState(false);
@@ -113,6 +117,17 @@ export function Waveform({
       wavesurfer.seekTo(progress);
     }
   }, [progress, duration, wavesurfer, isWavesurferReady]);
+
+  // Handle segment range playback
+  useEffect(() => {
+    if (!wavesurfer || !isWavesurferReady || !segmentRange) return;
+
+    // Play the specific segment range
+    wavesurfer.play(segmentRange.start, segmentRange.end).catch(console.error);
+
+    // Clear the segment range after using it
+    onSegmentRangeUsed?.();
+  }, [segmentRange, wavesurfer, isWavesurferReady, onSegmentRangeUsed]);
 
   // Handle click events for seeking
   const handleClick = useCallback(
