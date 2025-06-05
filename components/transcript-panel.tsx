@@ -18,7 +18,9 @@ interface TranscriptPanelProps {
   speakers: Speaker[];
   currentTime: number;
   highlightedSegmentId?: string;
+  highlightedSegmentIds?: string[];
   onSegmentClick: (segment: TranscriptSegment) => void;
+  wordTimings?: Array<{ word: string; start: number; end: number }>;
 }
 
 export function TranscriptPanel({
@@ -26,7 +28,9 @@ export function TranscriptPanel({
   speakers,
   currentTime,
   highlightedSegmentId,
+  highlightedSegmentIds = [],
   onSegmentClick,
+  wordTimings = [],
 }: TranscriptPanelProps) {
   const dispatch = useAppDispatch();
   const { autoScrollEnabled, userHasScrolled } = useAppSelector(
@@ -176,6 +180,26 @@ export function TranscriptPanel({
     return speakers.find((speaker) => speaker.id === id);
   };
 
+  // Get current word being spoken
+  const getCurrentWord = () => {
+    if (!wordTimings) return null;
+    return wordTimings.find(
+      (word) => currentTime >= word.start && currentTime <= word.end
+    );
+  };
+
+  // Highlight current word in text
+  const highlightCurrentWord = (text: string) => {
+    const currentWord = getCurrentWord();
+    if (!currentWord) return text;
+
+    const wordRegex = new RegExp(
+      `\\b${currentWord.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "gi"
+    );
+    return text.replace(wordRegex, `<span class="text-blue-600">$&</span>`);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
@@ -227,7 +251,8 @@ export function TranscriptPanel({
                   "transition-all duration-200 cursor-pointer hover:bg-gray-50",
                   activeSegmentId === segment.id &&
                     "bg-blue-50 -mx-2 px-2 py-1 rounded",
-                  highlightedSegmentId === segment.id &&
+                  (highlightedSegmentId === segment.id ||
+                    highlightedSegmentIds.includes(segment.id)) &&
                     "bg-yellow-50 -mx-2 px-2 py-1 rounded border-l-4 border-yellow-400"
                 )}
                 onClick={() => onSegmentClick(segment)}
@@ -244,7 +269,12 @@ export function TranscriptPanel({
                     {speaker?.role === "clinician" ? "Clinician" : "Patient"}
                   </span>
                 </div>
-                <p className="text-gray-800">{segment.text}</p>
+                <p
+                  className="text-gray-800"
+                  dangerouslySetInnerHTML={{
+                    __html: highlightCurrentWord(segment.text),
+                  }}
+                />
               </div>
             );
           })}

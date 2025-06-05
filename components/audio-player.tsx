@@ -43,12 +43,13 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [actualDuration, setActualDuration] = useState(duration);
   const [volume, setVolume] = useState(0.8);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const progress = duration > 0 ? currentTime / duration : 0;
+  const progress = actualDuration > 0 ? currentTime / actualDuration : 0;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -79,12 +80,17 @@ export function AudioPlayer({
       setIsLoading(false);
     };
 
+    const handleLoadedMetadata = () => {
+      setActualDuration(audio.duration);
+    };
+
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("loadstart", handleLoadStart);
     audio.addEventListener("canplay", handleCanPlay);
     audio.addEventListener("waiting", handleWaiting);
     audio.addEventListener("playing", handlePlaying);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
 
     return () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
@@ -93,6 +99,7 @@ export function AudioPlayer({
       audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("waiting", handleWaiting);
       audio.removeEventListener("playing", handlePlaying);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
   }, [onTimeUpdate]);
 
@@ -143,7 +150,7 @@ export function AudioPlayer({
   const skipForward = () => {
     const audio = audioRef.current;
     if (audio) {
-      const newTime = Math.min(duration, audio.currentTime + 10);
+      const newTime = Math.min(actualDuration, audio.currentTime + 10);
       audio.currentTime = newTime;
       setCurrentTime(newTime);
       onSeek?.(newTime);
@@ -189,84 +196,42 @@ export function AudioPlayer({
     );
 
   return (
-    <div className="w-full bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+    <div className="w-full bg-white p-6 py-4 rounded-lg shadow-sm border border-gray-100">
       <div className="flex flex-col space-y-4">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold">{title}</h2>
-            <p className="text-sm text-blue-600 mt-1 min-h-[1.25rem]">
-              {currentWord ? (
-                <>
-                  Currently speaking: &ldquo;{currentWord.word}&rdquo;
-                  {isMedicalTerm && (
-                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                      Medical Term
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="text-transparent">
-                  Currently speaking: &ldquo;placeholder&rdquo;
-                </span>
-              )}
-            </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Settings size={16} className="mr-2" />
-                  {playbackRate}x
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
-                  <DropdownMenuItem
-                    key={rate}
-                    onClick={() => setPlaybackRate(rate)}
-                    className={playbackRate === rate ? "bg-blue-50" : ""}
-                  >
-                    {rate}x Speed
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="flex items-center space-x-2">
-              <Volume2 size={16} className="text-gray-500" />
-              <Slider
-                className="w-24"
-                defaultValue={[volume * 100]}
-                max={100}
-                step={1}
-                onValueChange={(value) => setVolume(value[0] / 100)}
-              />
+          {wordTimings && (
+            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <strong>Word-level timing available:</strong> {wordTimings.length}{" "}
+              words tracked
             </div>
-          </div>
+          )}
         </div>
 
         <div className="space-y-2">
-          <div
-            className="relative w-full cursor-pointer"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const percent = (e.clientX - rect.left) / rect.width;
-              const newTime = duration * percent;
-              handleSeek([newTime]);
-            }}
-          >
-            <Waveform progress={progress} duration={duration} />
+          <div className="relative w-full">
+            <Waveform
+              progress={progress}
+              duration={actualDuration}
+              audioUrl={audioUrl}
+              onTimeUpdate={onTimeUpdate}
+              onSeek={(time) => {
+                const audio = audioRef.current;
+                if (audio) {
+                  audio.currentTime = time;
+                  setCurrentTime(time);
+                  onSeek?.(time);
+                }
+              }}
+              isPlaying={isPlaying}
+              height={64}
+            />
           </div>
-
-          <Slider
-            className="w-full"
-            value={[currentTime]}
-            max={duration}
-            step={0.1}
-            onValueChange={handleSeek}
-          />
         </div>
 
-        <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
           <div className="flex space-x-2">
             <Button
               variant="outline"
@@ -304,23 +269,43 @@ export function AudioPlayer({
               <SkipForward size={16} />
             </Button>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings size={16} className="mr-2" />
+                {playbackRate}x
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
+                <DropdownMenuItem
+                  key={rate}
+                  onClick={() => setPlaybackRate(rate)}
+                  className={playbackRate === rate ? "bg-blue-50" : ""}
+                >
+                  {rate}x Speed
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div className="text-sm text-gray-500">
-            {formatTime(currentTime)} / {formatTime(duration)}
+          <div className="flex items-center space-x-2">
+            <Volume2 size={16} className="text-gray-500" />
+            <Slider
+              className="w-24"
+              defaultValue={[volume * 100]}
+              max={100}
+              step={1}
+              onValueChange={(value) => setVolume(value[0] / 100)}
+            />
+          </div>
+
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-500">
+              {formatTime(currentTime)} / {formatTime(actualDuration)}
+            </div>
           </div>
         </div>
-
-        {wordTimings && (
-          <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-            <strong>Word-level timing available:</strong> {wordTimings.length}{" "}
-            words tracked
-            {medicalTerms.length > 0 && (
-              <span className="ml-4">
-                <strong>Medical terms detected:</strong> {medicalTerms.length}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       <audio ref={audioRef} src={audioUrl} preload="metadata" />

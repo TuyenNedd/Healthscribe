@@ -116,9 +116,9 @@ The project is a Next.js web application designed for analyzing medical consulta
 ## 4. Data Flow and Management
 
 1.  **Initial Data Load** (`app/page.tsx`):
-    - `mockAudioData` (consultation metadata, segment transcript, summary) is imported directly from `lib/mock-data.ts`.
     - `wordTimingsData` (word-level transcript) is imported from `@/data/fever_stomach_word.json`.
     - Audio file URL points to `/data/fever_stomach.mp3`, which Next.js serves from `public/data/fever_stomach.mp3`.
+    - `mockAudioData` (consultation metadata, segment transcript, summary) is imported directly from `lib/mock-data.ts`.
 2.  **Audio Playback and Time Updates**:
     - `AudioPlayer` plays the audio from `audioUrl`.
     - On `timeupdate`, `AudioPlayer` updates its internal `currentTime` and calls `onTimeUpdate(audio.currentTime)`.
