@@ -229,6 +229,14 @@ export function AudioPlayer({
                   onSeek?.(time);
                 }
               }}
+              onPlay={() => {
+                setIsPlaying(true);
+                onPlay?.();
+              }}
+              onPause={() => {
+                setIsPlaying(false);
+                onPause?.();
+              }}
               isPlaying={isPlaying}
               height={64}
               segmentRange={segmentRange}
