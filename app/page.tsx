@@ -64,7 +64,18 @@ export default function Home() {
   const wordTimings = feverStomachWord;
 
   const handleSegmentClick = (segment: TranscriptSegment) => {
+    // Clear any existing highlights from summary clicks
+    setHighlightedSegmentIds([]);
+    setActivePointId(undefined);
+
+    // Set current time and trigger audio jump
     setCurrentTime(segment.startTime);
+
+    // Store the segment range for the audio player to use (play just this segment)
+    setSegmentRange({
+      start: segment.startTime,
+      end: segment.endTime,
+    });
   };
 
   const handleSummaryPointClick = (point: SummaryPoint) => {
