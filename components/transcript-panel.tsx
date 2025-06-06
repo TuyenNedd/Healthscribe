@@ -327,12 +327,11 @@ export function TranscriptPanel({
                 key={segment.id}
                 ref={(el) => (segmentRefs.current[segment.id] = el)}
                 className={cn(
-                  "transition-all duration-200 cursor-pointer hover:bg-gray-50",
-                  activeSegmentId === segment.id &&
-                    "bg-blue-50 -mx-2 px-2 py-1 rounded",
+                  "transition-all duration-200 cursor-pointer hover:bg-gray-50 p-3 rounded-md",
+                  activeSegmentId === segment.id && "bg-blue-50 p-3 rounded-md",
                   (highlightedSegmentId === segment.id ||
                     highlightedSegmentIds.includes(segment.id)) &&
-                    "bg-yellow-50 -mx-2 px-2 py-1 rounded border-l-4 border-yellow-400"
+                    "bg-yellow-50 p-3 rounded-md"
                 )}
                 onClick={() => onSegmentClick(segment)}
               >
