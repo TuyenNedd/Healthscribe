@@ -29,6 +29,8 @@ interface AudioPlayerProps {
   onPause?: () => void;
   onSeek?: (time: number) => void;
   wordTimings?: Array<{ word: string; start: number; end: number }>;
+  segmentRange?: { start: number; end: number } | null;
+  onSegmentRangeUsed?: () => void;
 }
 
 export function AudioPlayer({
@@ -40,6 +42,8 @@ export function AudioPlayer({
   onPause,
   onSeek,
   wordTimings,
+  segmentRange,
+  onSegmentRangeUsed,
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -47,114 +51,56 @@ export function AudioPlayer({
   const [volume, setVolume] = useState(0.8);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isLoading, setIsLoading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const progress = actualDuration > 0 ? currentTime / actualDuration : 0;
 
+  // Set actual duration from props when component mounts
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    setActualDuration(duration);
+  }, [duration]);
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      onTimeUpdate?.(audio.currentTime);
-    };
+  // Handle duration update when waveform is ready
+  const handleWaveformReady = () => {
+    setIsLoading(false);
+    // Duration will be set from the duration prop or waveform data
+  };
 
-    const handleEnded = () => {
-      setIsPlaying(false);
-    };
+  // Handle time updates from Waveform component
+  const handleTimeUpdate = (time: number) => {
+    setCurrentTime(time);
+    onTimeUpdate?.(time);
+  };
 
-    const handleLoadStart = () => {
-      setIsLoading(true);
-    };
-
-    const handleCanPlay = () => {
-      setIsLoading(false);
-    };
-
-    const handleWaiting = () => {
-      setIsLoading(true);
-    };
-
-    const handlePlaying = () => {
-      setIsLoading(false);
-    };
-
-    const handleLoadedMetadata = () => {
-      setActualDuration(audio.duration);
-    };
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("loadstart", handleLoadStart);
-    audio.addEventListener("canplay", handleCanPlay);
-    audio.addEventListener("waiting", handleWaiting);
-    audio.addEventListener("playing", handlePlaying);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("loadstart", handleLoadStart);
-      audio.removeEventListener("canplay", handleCanPlay);
-      audio.removeEventListener("waiting", handleWaiting);
-      audio.removeEventListener("playing", handlePlaying);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-    };
-  }, [onTimeUpdate]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-      audioRef.current.playbackRate = playbackRate;
-    }
-  }, [volume, playbackRate]);
+  // Handle when playback ends
+  const handlePlayEnd = () => {
+    setIsPlaying(false);
+  };
 
   const togglePlayPause = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
+    setIsPlaying(!isPlaying);
     if (isPlaying) {
-      audio.pause();
       onPause?.();
     } else {
-      audio.play().catch((error) => {
-        console.error("Error playing audio:", error);
-      });
       onPlay?.();
     }
-
-    setIsPlaying(!isPlaying);
   };
 
   const handleSeek = (newValue: number[]) => {
     const newTime = newValue[0];
-    const audio = audioRef.current;
-    if (audio) {
-      audio.currentTime = newTime;
-      setCurrentTime(newTime);
-      onSeek?.(newTime);
-    }
+    setCurrentTime(newTime);
+    onSeek?.(newTime);
   };
 
   const skipBackward = () => {
-    const audio = audioRef.current;
-    if (audio) {
-      const newTime = Math.max(0, audio.currentTime - 10);
-      audio.currentTime = newTime;
-      setCurrentTime(newTime);
-      onSeek?.(newTime);
-    }
+    const newTime = Math.max(0, currentTime - 10);
+    setCurrentTime(newTime);
+    onSeek?.(newTime);
   };
 
   const skipForward = () => {
-    const audio = audioRef.current;
-    if (audio) {
-      const newTime = Math.min(actualDuration, audio.currentTime + 10);
-      audio.currentTime = newTime;
-      setCurrentTime(newTime);
-      onSeek?.(newTime);
-    }
+    const newTime = Math.min(actualDuration, currentTime + 10);
+    setCurrentTime(newTime);
+    onSeek?.(newTime);
   };
 
   const getCurrentWord = () => {
@@ -201,6 +147,15 @@ export function AudioPlayer({
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold">{title}</h2>
+            <p className="text-sm text-blue-600 mt-1 min-h-[1.25rem]">
+              {currentWord ? (
+                <>Currently speaking: &ldquo;{currentWord.word}&rdquo;</>
+              ) : (
+                <span className="text-transparent">
+                  Currently speaking: &ldquo;placeholder&rdquo;
+                </span>
+              )}
+            </p>
           </div>
           {wordTimings && (
             <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
@@ -216,17 +171,24 @@ export function AudioPlayer({
               progress={progress}
               duration={actualDuration}
               audioUrl={audioUrl}
-              onTimeUpdate={onTimeUpdate}
+              onTimeUpdate={handleTimeUpdate}
+              onReady={handleWaveformReady}
               onSeek={(time) => {
-                const audio = audioRef.current;
-                if (audio) {
-                  audio.currentTime = time;
-                  setCurrentTime(time);
-                  onSeek?.(time);
-                }
+                setCurrentTime(time);
+                onSeek?.(time);
+              }}
+              onPlay={() => {
+                setIsPlaying(true);
+                onPlay?.();
+              }}
+              onPause={() => {
+                setIsPlaying(false);
+                onPause?.();
               }}
               isPlaying={isPlaying}
               height={64}
+              segmentRange={segmentRange}
+              onSegmentRangeUsed={onSegmentRangeUsed}
             />
           </div>
         </div>
@@ -307,8 +269,6 @@ export function AudioPlayer({
           </div>
         </div>
       </div>
-
-      <audio ref={audioRef} src={audioUrl} preload="metadata" />
     </div>
   );
 }

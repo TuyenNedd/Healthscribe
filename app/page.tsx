@@ -20,6 +20,10 @@ export default function Home() {
   );
   const [activePointId, setActivePointId] = useState<string>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [segmentRange, setSegmentRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
 
   // Transform data to expected formats
   const audioData = {
@@ -69,12 +73,24 @@ export default function Home() {
       setHighlightedSegmentIds(point.relatedSegmentIds);
       setActivePointId(point.id);
 
-      // Find the first segment to get its start time
-      const firstSegment = audioData.transcript.find(
-        (s) => s.id === point.relatedSegmentIds[0]
+      // Find all related segments
+      const relatedSegments = audioData.transcript.filter((segment) =>
+        point.relatedSegmentIds.includes(segment.id)
       );
-      if (firstSegment) {
-        setCurrentTime(firstSegment.startTime);
+
+      if (relatedSegments.length > 0) {
+        // Get start time from first segment and end time from last segment
+        const sortedSegments = relatedSegments.sort(
+          (a, b) => a.startTime - b.startTime
+        );
+        const startTime = sortedSegments[0].startTime;
+        const endTime = sortedSegments[sortedSegments.length - 1].endTime;
+
+        // Set current time and trigger audio jump
+        setCurrentTime(startTime);
+
+        // Store the segment range for the audio player to use
+        setSegmentRange({ start: startTime, end: endTime });
       }
     }
   };
@@ -95,6 +111,8 @@ export default function Home() {
             onTimeUpdate={setCurrentTime}
             onSeek={setCurrentTime}
             wordTimings={wordTimings}
+            segmentRange={segmentRange}
+            onSegmentRangeUsed={() => setSegmentRange(null)}
           />
         </div>
 

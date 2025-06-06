@@ -188,16 +188,95 @@ export function TranscriptPanel({
     );
   };
 
-  // Highlight current word in text
-  const highlightCurrentWord = (text: string) => {
+  // Highlight current word in text (only the specific occurrence in the current segment)
+  const highlightCurrentWord = (text: string, segment: TranscriptSegment) => {
     const currentWord = getCurrentWord();
     if (!currentWord) return text;
 
-    const wordRegex = new RegExp(
-      `\\b${currentWord.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      "gi"
+    // Check if the current word belongs to this segment by time range
+    // Allow for small timing overlaps by checking if the word overlaps with the segment
+    const wordBelongsToSegment =
+      (currentWord.start >= segment.startTime &&
+        currentWord.start <= segment.endTime) ||
+      (currentWord.end >= segment.startTime &&
+        currentWord.end <= segment.endTime) ||
+      (currentWord.start <= segment.startTime &&
+        currentWord.end >= segment.endTime);
+
+    if (!wordBelongsToSegment) return text;
+
+    // Get all words that belong to this segment, sorted by start time
+    const segmentWords = wordTimings
+      .filter(
+        (word) =>
+          (word.start >= segment.startTime && word.start <= segment.endTime) ||
+          (word.end >= segment.startTime && word.end <= segment.endTime) ||
+          (word.start <= segment.startTime && word.end >= segment.endTime)
+      )
+      .sort((a, b) => a.start - b.start);
+
+    // Find which occurrence of this word the current word is
+    const cleanCurrentWord = currentWord.word
+      .replace(/[^\w\s]/g, "")
+      .toLowerCase();
+    const sameWords = segmentWords.filter(
+      (word) =>
+        word.word.replace(/[^\w\s]/g, "").toLowerCase() === cleanCurrentWord
     );
-    return text.replace(wordRegex, `<span class="text-blue-600">$&</span>`);
+
+    const currentWordIndex = sameWords.findIndex(
+      (word) => word.start === currentWord.start && word.end === currentWord.end
+    );
+
+    if (currentWordIndex === -1) return text;
+
+    // The occurrence number (1-based)
+    const occurrenceNumber = currentWordIndex + 1;
+
+    // Clean the word by removing punctuation and converting to lowercase for matching
+    const cleanWord = currentWord.word.replace(/[^\w\s]/g, "").toLowerCase();
+    if (!cleanWord) return text;
+
+    // Create multiple regex patterns to catch different variations
+    const patterns = [
+      // Exact word match with word boundaries
+      `\\b${currentWord.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      // Clean word match with word boundaries
+      `\\b${cleanWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      // Clean word match without strict word boundaries (for contractions, etc.)
+      cleanWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ];
+
+    let highlightedText = text;
+
+    // Try each pattern until we find a match
+    for (const pattern of patterns) {
+      const wordRegex = new RegExp(pattern, "gi");
+      const matches: RegExpExecArray[] = [];
+      let match;
+
+      // Collect all matches manually for compatibility
+      while ((match = wordRegex.exec(text)) !== null) {
+        matches.push(match);
+        if (!wordRegex.global) break;
+      }
+
+      if (matches.length >= occurrenceNumber) {
+        // Replace only the specific occurrence
+        const targetMatch = matches[occurrenceNumber - 1];
+        const beforeMatch = text.substring(0, targetMatch.index);
+        const matchText = targetMatch[0];
+        const afterMatch = text.substring(targetMatch.index + matchText.length);
+
+        highlightedText =
+          beforeMatch +
+          `<span class="text-blue-600 bg-blue-50 rounded">${matchText}</span>` +
+          afterMatch;
+        break;
+      }
+    }
+
+    return highlightedText;
   };
 
   return (
@@ -272,7 +351,7 @@ export function TranscriptPanel({
                 <p
                   className="text-gray-800"
                   dangerouslySetInnerHTML={{
-                    __html: highlightCurrentWord(segment.text),
+                    __html: highlightCurrentWord(segment.text, segment),
                   }}
                 />
               </div>

@@ -13,8 +13,12 @@ interface WaveformProps {
   onTimeUpdate?: (currentTime: number) => void;
   onReady?: () => void;
   onSeek?: (time: number) => void;
+  onPlay?: () => void;
+  onPause?: () => void;
   isPlaying?: boolean;
   height?: number;
+  segmentRange?: { start: number; end: number } | null;
+  onSegmentRangeUsed?: () => void;
 }
 
 export function Waveform({
@@ -25,8 +29,12 @@ export function Waveform({
   onTimeUpdate,
   onReady,
   onSeek,
+  onPlay,
+  onPause,
   isPlaying = false,
   height = 64,
+  segmentRange,
+  onSegmentRangeUsed,
 }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWavesurferReady, setIsWavesurferReady] = useState(false);
@@ -75,6 +83,21 @@ export function Waveform({
     };
   }, [wavesurfer, onTimeUpdate]);
 
+  // Handle pause events
+  useEffect(() => {
+    if (!wavesurfer) return;
+
+    const handlePause = () => {
+      onPause?.();
+    };
+
+    wavesurfer.on("pause", handlePause);
+
+    return () => {
+      wavesurfer.un("pause", handlePause);
+    };
+  }, [wavesurfer, onPause]);
+
   // Handle seeking
   useEffect(() => {
     if (!wavesurfer) return;
@@ -113,6 +136,20 @@ export function Waveform({
       wavesurfer.seekTo(progress);
     }
   }, [progress, duration, wavesurfer, isWavesurferReady]);
+
+  // Handle segment range playback
+  useEffect(() => {
+    if (!wavesurfer || !isWavesurferReady || !segmentRange) return;
+
+    // Play the specific segment range and notify parent
+    wavesurfer
+      .play(segmentRange.start, segmentRange.end + 0.5)
+      .catch(console.error);
+    onPlay?.(); // Notify parent that playback has started
+
+    // Clear the segment range after using it
+    onSegmentRangeUsed?.();
+  }, [segmentRange, wavesurfer, isWavesurferReady, onSegmentRangeUsed, onPlay]);
 
   // Handle click events for seeking
   const handleClick = useCallback(
