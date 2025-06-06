@@ -19,6 +19,8 @@ interface WaveformProps {
   height?: number;
   segmentRange?: { start: number; end: number } | null;
   onSegmentRangeUsed?: () => void;
+  volume?: number; // 0 to 1
+  playbackRate?: number; // 0.5 to 2.0
 }
 
 export function Waveform({
@@ -35,6 +37,8 @@ export function Waveform({
   height = 64,
   segmentRange,
   onSegmentRangeUsed,
+  volume = 0.8,
+  playbackRate = 1.0,
 }: WaveformProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWavesurferReady, setIsWavesurferReady] = useState(false);
@@ -150,6 +154,20 @@ export function Waveform({
     // Clear the segment range after using it
     onSegmentRangeUsed?.();
   }, [segmentRange, wavesurfer, isWavesurferReady, onSegmentRangeUsed, onPlay]);
+
+  // Handle volume changes
+  useEffect(() => {
+    if (!wavesurfer || !isWavesurferReady) return;
+
+    wavesurfer.setVolume(volume);
+  }, [volume, wavesurfer, isWavesurferReady]);
+
+  // Handle playback rate changes
+  useEffect(() => {
+    if (!wavesurfer || !isWavesurferReady) return;
+
+    wavesurfer.setPlaybackRate(playbackRate);
+  }, [playbackRate, wavesurfer, isWavesurferReady]);
 
   // Handle click events for seeking
   const handleClick = useCallback(

@@ -48,8 +48,20 @@ export function AudioPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [actualDuration, setActualDuration] = useState(duration);
-  const [volume, setVolume] = useState(0.8);
-  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [volume, setVolume] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedVolume = localStorage.getItem("healthscribe-volume");
+      return savedVolume ? parseFloat(savedVolume) : 0.8;
+    }
+    return 0.8;
+  });
+  const [playbackRate, setPlaybackRate] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedRate = localStorage.getItem("healthscribe-playback-rate");
+      return savedRate ? parseFloat(savedRate) : 1.0;
+    }
+    return 1.0;
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const progress = actualDuration > 0 ? currentTime / actualDuration : 0;
@@ -58,6 +70,23 @@ export function AudioPlayer({
   useEffect(() => {
     setActualDuration(duration);
   }, [duration]);
+
+  // Persist volume to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("healthscribe-volume", volume.toString());
+    }
+  }, [volume]);
+
+  // Persist playback rate to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "healthscribe-playback-rate",
+        playbackRate.toString()
+      );
+    }
+  }, [playbackRate]);
 
   // Handle duration update when waveform is ready
   const handleWaveformReady = () => {
@@ -189,6 +218,8 @@ export function AudioPlayer({
               height={64}
               segmentRange={segmentRange}
               onSegmentRangeUsed={onSegmentRangeUsed}
+              volume={volume}
+              playbackRate={playbackRate}
             />
           </div>
         </div>
