@@ -14,7 +14,7 @@ export const feverStomachWord = [
   { word: "and", start: 11.32, end: 11.68 },
   { word: "a", start: 11.68, end: 11.9 },
   { word: "sore", start: 11.9, end: 12.26 },
-  { word: "stomach.", start: 12.26, end: 12.76 },
+  { word: "stomach.", start: 12.4, end: 12.76 },
   { word: "Okay,", start: 13.22, end: 13.76 },
   { word: "Tony.", start: 13.88, end: 14.16 },
   { word: "I", start: 15.28, end: 15.96 },

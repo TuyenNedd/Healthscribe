@@ -142,7 +142,9 @@ export function Waveform({
     if (!wavesurfer || !isWavesurferReady || !segmentRange) return;
 
     // Play the specific segment range and notify parent
-    wavesurfer.play(segmentRange.start, segmentRange.end).catch(console.error);
+    wavesurfer
+      .play(segmentRange.start, segmentRange.end + 0.5)
+      .catch(console.error);
     onPlay?.(); // Notify parent that playback has started
 
     // Clear the segment range after using it
