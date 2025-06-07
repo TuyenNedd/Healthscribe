@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AudioPlayer } from "@/components/audio-player";
 import { TranscriptPanel } from "@/components/transcript-panel";
@@ -25,12 +25,26 @@ export default function Home() {
     end: number;
   } | null>(null);
 
+  const audioPlayerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (audioPlayerRef.current) {
+        const audioPlayerHeight = audioPlayerRef.current.offsetHeight;
+        document.documentElement.style.setProperty(
+          "--audio-player-height",
+          `${audioPlayerHeight}px`
+        );
+      }
+    }, 300);
+  }, []);
+
   // Transform data to expected formats
   const audioData = {
     id: "consultation-fever-stomach",
     title: "Fever and Stomach Pain Consultation",
     url: "/data/fever_stomach.mp3",
-    duration: 62.36,
+    duration: 0, // Will be set automatically from audio file
     speakers: [
       { id: "SPEAKER_00", name: "Dr. Smith", role: "clinician" as const },
       { id: "SPEAKER_01", name: "Mr. McKay", role: "patient" as const },
@@ -107,14 +121,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="max-w-full mx-auto px-4 py-8">
+    <div className="h-screen bg-gray-50">
+      <main className="max-w-full mx-auto px-4">
         {/* <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">{audioData.title}</h1>
           <Button variant="outline">Change Audio</Button>
         </div> */}
 
-        <div className="sticky top-0 z-10 bg-gray-50 pb-6">
+        <div ref={audioPlayerRef} className="sticky top-0 z-10 bg-gray-50 pb-6">
           <AudioPlayer
             audioUrl={audioData.url}
             title={audioData.title}
@@ -131,7 +145,7 @@ export default function Home() {
           <AudioControls onSearch={setSearchQuery} />
         </div> */}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[600px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:h-[calc(100vh-var(--audio-player-height))]">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col overflow-hidden">
             <TranscriptPanel
               transcript={audioData.transcript}
