@@ -66,9 +66,11 @@ export function AudioPlayer({
 
   const progress = actualDuration > 0 ? currentTime / actualDuration : 0;
 
-  // Set actual duration from props when component mounts
+  // Set actual duration from props when component mounts (only if duration is provided)
   useEffect(() => {
-    setActualDuration(duration);
+    if (duration > 0) {
+      setActualDuration(duration);
+    }
   }, [duration]);
 
   // Persist volume to localStorage
@@ -91,7 +93,11 @@ export function AudioPlayer({
   // Handle duration update when waveform is ready
   const handleWaveformReady = () => {
     setIsLoading(false);
-    // Duration will be set from the duration prop or waveform data
+  };
+
+  // Handle when actual duration is detected from audio file
+  const handleDurationChange = (newDuration: number) => {
+    setActualDuration(newDuration);
   };
 
   // Handle time updates from Waveform component
@@ -202,6 +208,7 @@ export function AudioPlayer({
               audioUrl={audioUrl}
               onTimeUpdate={handleTimeUpdate}
               onReady={handleWaveformReady}
+              onDurationChange={handleDurationChange}
               onSeek={(time) => {
                 setCurrentTime(time);
                 onSeek?.(time);

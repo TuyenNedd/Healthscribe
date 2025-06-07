@@ -42,8 +42,59 @@ export function TranscriptPanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastScrollTime = useRef<number>(0);
   const autoScrollInProgress = useRef<boolean>(false);
+  const programmaticScrollTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const filteredTranscript = transcript;
+
+  // Helper function to mark programmatic scroll
+  const markProgrammaticScroll = () => {
+    autoScrollInProgress.current = true;
+    lastScrollTime.current = Date.now();
+
+    // Clear any existing timeout
+    if (programmaticScrollTimeout.current) {
+      clearTimeout(programmaticScrollTimeout.current);
+    }
+
+    // Set timeout to reset flag after scroll completes
+    programmaticScrollTimeout.current = setTimeout(() => {
+      autoScrollInProgress.current = false;
+    }, 1000); // Increased timeout for safety
+  };
+
+  // Helper function to scroll within the transcript panel only
+  const scrollToSegment = (segmentId: string) => {
+    const segmentElement = segmentRefs.current[segmentId];
+    const scrollArea = scrollAreaRef.current;
+
+    if (!segmentElement || !scrollArea) return;
+
+    const scrollViewport = scrollArea.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    );
+    if (!scrollViewport) return;
+
+    markProgrammaticScroll();
+
+    // Get the position of the segment relative to the scroll container
+    const segmentRect = segmentElement.getBoundingClientRect();
+    const scrollRect = scrollViewport.getBoundingClientRect();
+
+    // Calculate the scroll position to center the segment
+    const scrollTop = scrollViewport.scrollTop;
+    const targetScrollTop =
+      scrollTop +
+      segmentRect.top -
+      scrollRect.top -
+      scrollRect.height / 2 +
+      segmentRect.height / 2;
+
+    // Smooth scroll within the ScrollArea only
+    scrollViewport.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: "smooth",
+    });
+  };
 
   // Detect user manual scrolling
   useEffect(() => {
@@ -51,14 +102,7 @@ export function TranscriptPanel({
     if (!scrollArea) return;
 
     const handleScroll = () => {
-      const now = Date.now();
-
-      // If this scroll event happened very recently after an auto-scroll, ignore it
-      if (autoScrollInProgress.current && now - lastScrollTime.current < 100) {
-        return;
-      }
-
-      // This is a user-initiated scroll
+      // Only treat as user scroll if we're not in the middle of programmatic scroll
       if (!autoScrollInProgress.current && autoScrollEnabled) {
         dispatch(setUserHasScrolled(true));
         dispatch(setAutoScrollEnabled(false));
@@ -70,7 +114,13 @@ export function TranscriptPanel({
     );
     if (scrollElement) {
       scrollElement.addEventListener("scroll", handleScroll, { passive: true });
-      return () => scrollElement.removeEventListener("scroll", handleScroll);
+      return () => {
+        scrollElement.removeEventListener("scroll", handleScroll);
+        // Clean up timeout on unmount
+        if (programmaticScrollTimeout.current) {
+          clearTimeout(programmaticScrollTimeout.current);
+        }
+      };
     }
   }, [autoScrollEnabled, dispatch]);
 
@@ -86,21 +136,7 @@ export function TranscriptPanel({
 
       // Only auto-scroll if enabled and user hasn't manually scrolled
       if (autoScrollEnabled && !userHasScrolled) {
-        const segmentElement = segmentRefs.current[currentSegment.id];
-        if (segmentElement) {
-          autoScrollInProgress.current = true;
-          lastScrollTime.current = Date.now();
-
-          segmentElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-          // Reset the flag after scroll animation completes
-          setTimeout(() => {
-            autoScrollInProgress.current = false;
-          }, 500);
-        }
+        scrollToSegment(currentSegment.id);
       }
     }
   }, [currentTime, transcript, autoScrollEnabled, userHasScrolled]);
@@ -108,20 +144,7 @@ export function TranscriptPanel({
   // Scroll to highlighted segment when it changes (always enabled for summary clicks)
   useEffect(() => {
     if (highlightedSegmentId) {
-      const segmentElement = segmentRefs.current[highlightedSegmentId];
-      if (segmentElement) {
-        autoScrollInProgress.current = true;
-        lastScrollTime.current = Date.now();
-
-        segmentElement.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-
-        setTimeout(() => {
-          autoScrollInProgress.current = false;
-        }, 500);
-      }
+      scrollToSegment(highlightedSegmentId);
     }
   }, [highlightedSegmentId]);
 
@@ -135,20 +158,7 @@ export function TranscriptPanel({
           currentTime >= segment.startTime && currentTime <= segment.endTime
       );
       if (currentSegment) {
-        const segmentElement = segmentRefs.current[currentSegment.id];
-        if (segmentElement) {
-          autoScrollInProgress.current = true;
-          lastScrollTime.current = Date.now();
-
-          segmentElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-
-          setTimeout(() => {
-            autoScrollInProgress.current = false;
-          }, 500);
-        }
+        scrollToSegment(currentSegment.id);
       }
     }
   };
@@ -159,20 +169,7 @@ export function TranscriptPanel({
         currentTime >= segment.startTime && currentTime <= segment.endTime
     );
     if (currentSegment) {
-      const segmentElement = segmentRefs.current[currentSegment.id];
-      if (segmentElement) {
-        autoScrollInProgress.current = true;
-        lastScrollTime.current = Date.now();
-
-        segmentElement.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-
-        setTimeout(() => {
-          autoScrollInProgress.current = false;
-        }, 500);
-      }
+      scrollToSegment(currentSegment.id);
     }
   };
 

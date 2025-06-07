@@ -12,6 +12,7 @@ interface WaveformProps {
   duration?: number; // Duration in seconds for time markers
   onTimeUpdate?: (currentTime: number) => void;
   onReady?: () => void;
+  onDurationChange?: (duration: number) => void;
   onSeek?: (time: number) => void;
   onPlay?: () => void;
   onPause?: () => void;
@@ -30,6 +31,7 @@ export function Waveform({
   duration,
   onTimeUpdate,
   onReady,
+  onDurationChange,
   onSeek,
   onPlay,
   onPause,
@@ -67,9 +69,16 @@ export function Waveform({
   useEffect(() => {
     if (isReady && wavesurfer) {
       setIsWavesurferReady(true);
+
+      // Get actual duration from audio file
+      const actualDuration = wavesurfer.getDuration();
+      if (actualDuration > 0) {
+        onDurationChange?.(actualDuration);
+      }
+
       onReady?.();
     }
-  }, [isReady, wavesurfer, onReady]);
+  }, [isReady, wavesurfer, onReady, onDurationChange]);
 
   // Handle time updates
   useEffect(() => {
@@ -87,20 +96,26 @@ export function Waveform({
     };
   }, [wavesurfer, onTimeUpdate]);
 
-  // Handle pause events
+  // Handle play/pause events
   useEffect(() => {
     if (!wavesurfer) return;
+
+    const handlePlay = () => {
+      onPlay?.();
+    };
 
     const handlePause = () => {
       onPause?.();
     };
 
+    wavesurfer.on("play", handlePlay);
     wavesurfer.on("pause", handlePause);
 
     return () => {
+      wavesurfer.un("play", handlePlay);
       wavesurfer.un("pause", handlePause);
     };
-  }, [wavesurfer, onPause]);
+  }, [wavesurfer, onPlay, onPause]);
 
   // Handle seeking
   useEffect(() => {
@@ -213,7 +228,7 @@ export function Waveform({
 
       {/* Loading indicator */}
       {!isWavesurferReady && (
-        <div className="flex items-center justify-center h-16 bg-gray-50 rounded">
+        <div className="flex items-center justify-center bg-gray-50 rounded">
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <span className="ml-2 text-sm text-gray-600">
             Loading waveform...
