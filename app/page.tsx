@@ -39,7 +39,41 @@ export default function Home() {
     }, 300);
   }, []);
 
-  // Transform data to expected formats
+  // State for managing summary edits
+  const [summaryData, setSummaryData] = useState(() => {
+    // Transform data to expected formats with versioning
+    return Object.entries(feverStomachSummary).flatMap(([category, items]) =>
+      items.map((item, index) => {
+        const pointId = `${category}-${index}`;
+        const originalVersionId = `${pointId}-v1`;
+        return {
+          id: pointId,
+          category: category
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase()),
+          text: item.info,
+          relatedSegmentIds: item.utterance_ids
+            .map((utteranceId) => {
+              const transcriptIndex = feverStomachTranscript.findIndex(
+                (t) => t.utterance_id === utteranceId
+              );
+              return `segment-${transcriptIndex + 1}`;
+            })
+            .filter((id) => id !== "segment-0"), // Filter out invalid mappings
+          versions: [
+            {
+              id: originalVersionId,
+              content: item.info,
+              createdAt: new Date(),
+              isOriginal: true,
+            },
+          ],
+          currentVersionId: originalVersionId,
+        };
+      })
+    );
+  });
+
   const audioData = {
     id: "consultation-fever-stomach",
     title: "Fever and Stomach Pain Consultation",
@@ -56,23 +90,7 @@ export default function Home() {
       startTime: item.start,
       endTime: item.end,
     })),
-    summary: Object.entries(feverStomachSummary).flatMap(([category, items]) =>
-      items.map((item, index) => ({
-        id: `${category}-${index}`,
-        category: category
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        text: item.info,
-        relatedSegmentIds: item.utterance_ids
-          .map((utteranceId) => {
-            const transcriptIndex = feverStomachTranscript.findIndex(
-              (t) => t.utterance_id === utteranceId
-            );
-            return `segment-${transcriptIndex + 1}`;
-          })
-          .filter((id) => id !== "segment-0"), // Filter out invalid mappings
-      }))
-    ),
+    summary: summaryData,
   };
 
   const wordTimings = feverStomachWord;
@@ -120,6 +138,31 @@ export default function Home() {
     }
   };
 
+  const handleSummaryEdit = (pointId: string, newContent: string) => {
+    setSummaryData((prevData) =>
+      prevData.map((point) => {
+        if (point.id === pointId) {
+          // Create new version
+          const newVersionId = `${pointId}-v${point.versions.length + 1}`;
+          const newVersion = {
+            id: newVersionId,
+            content: newContent,
+            createdAt: new Date(),
+            isOriginal: false,
+          };
+
+          return {
+            ...point,
+            text: newContent, // Update the main text field
+            versions: [...point.versions, newVersion],
+            currentVersionId: newVersionId,
+          };
+        }
+        return point;
+      })
+    );
+  };
+
   return (
     <div className="h-screen bg-gray-50">
       <main className="max-w-full mx-auto px-4">
@@ -161,6 +204,7 @@ export default function Home() {
             <InsightsPanel
               summary={audioData.summary}
               onSummaryPointClick={handleSummaryPointClick}
+              onSummaryEdit={handleSummaryEdit}
               activePointId={activePointId}
             />
           </div>

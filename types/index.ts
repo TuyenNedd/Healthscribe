@@ -1,7 +1,7 @@
 export interface Speaker {
   id: string;
   name: string;
-  role: 'clinician' | 'patient';
+  role: "clinician" | "patient";
 }
 
 export interface TranscriptSegment {
@@ -14,11 +14,20 @@ export interface TranscriptSegment {
   isSilence?: boolean;
 }
 
+export interface SummaryPointVersion {
+  id: string;
+  content: string;
+  createdAt: Date;
+  isOriginal: boolean;
+}
+
 export interface SummaryPoint {
   id: string;
   category: string;
   text: string;
   relatedSegmentIds: string[];
+  versions: SummaryPointVersion[];
+  currentVersionId: string;
 }
 
 export interface AudioData {
